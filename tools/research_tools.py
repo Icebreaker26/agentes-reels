@@ -19,6 +19,18 @@ FUENTE_DEMO: dict[str, dict] = {
         "dato_ejemplo": "tasa de referencia DTF + 2 puntos (cifra de catalogo demo, confirmar con el cliente antes de publicar)",
         "publico": "asociados activos de la cooperativa",
     },
+    "credito_libre_inversion": {
+        "producto": "Credito de libre inversion",
+        "beneficio_clave": "desembolso en menos de 48 horas para asociados activos",
+        "dato_ejemplo": "tasa de referencia DTF + 5 puntos (cifra de catalogo demo, confirmar con el cliente antes de publicar)",
+        "publico": "asociados activos con al menos 6 meses de antiguedad",
+    },
+    "cuenta_ahorro_digital": {
+        "producto": "Cuenta de ahorro digital",
+        "beneficio_clave": "se abre desde el celular, sin ir a una oficina",
+        "dato_ejemplo": "sin cuota de manejo durante el primer año (cifra de catalogo demo, confirmar con el cliente antes de publicar)",
+        "publico": "nuevos asociados y jovenes afiliados",
+    },
 }
 
 

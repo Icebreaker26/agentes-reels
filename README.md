@@ -41,8 +41,17 @@ Lo que **sí** cubre este avance:
   el guion + las duraciones reales en una composición genérica de Remotion
   (`AgenteReel`, en el repo público `3d-animations-showcase`) y produce un
   MP4 real.
-- ✅ Investigación y Visual/3D usan herramientas reales (tool-calling) que
-  siguen **mockeadas** — ver justificación de Visual más abajo.
+- ✅ **Investigación real y con fuente elegible**: no hay un catálogo fijo
+  de temas — se le puede dar un repo local (`leer_repo`, solo lectura), una
+  búsqueda real en internet (`WebSearch`/`WebFetch`, herramientas nativas
+  del Agent SDK) o un enlace puntual. El catálogo demo sigue existiendo
+  como cuarta opción, para pruebas rápidas sin salir a internet.
+- ✅ Visual/3D sigue usando una herramienta **mockeada** — ver justificación
+  más abajo.
+- ✅ **CLI de uso real** (`producir_reel.py`, con `rich`): elegir fuente,
+  ver el guion en una tabla, aprobarlo o corregirlo con tu propio feedback,
+  y terminar con un MP4 real — sin abrir Jupyter. Cada corrida real queda
+  registrada con su costo medido en `historial_corridas.jsonl`.
 - ✅ Un ciclo de replanificación: si el QA (determinístico, no un LLM)
   rechaza el resultado, el Orquestador decide una corrección y se repite
   una vez el ciclo Guion → Voz → QA.
@@ -100,6 +109,30 @@ La elección de modelo por agente es deliberada, no uniforme:
 | QA | — (Python puro) | ver más abajo |
 | Render | — (Python puro) | ensamblar props + `remotion render`, ver más abajo |
 
+## CLI de uso real (más allá del notebook)
+
+El notebook es el entregable que pidió el profesor (un agente por celda,
+para calificar el diseño paso a paso). Para usar esto de verdad, sin abrir
+Jupyter cada vez, está `producir_reel.py`:
+
+```bash
+python producir_reel.py
+# o directo, sin preguntas interactivas:
+python producir_reel.py --fuente-tipo repo --fuente-valor "../kernel/frontend/src/modules/creditos" --duracion 20
+python producir_reel.py --fuente-tipo web --fuente-valor "tasas de ahorro programado en cooperativas en Colombia"
+python producir_reel.py --fuente-tipo url --fuente-valor "https://ejemplo.com/producto"
+python producir_reel.py --fuente-tipo demo --fuente-valor ahorro_voluntario
+```
+
+La aprobación del guion aquí sí es un `input()` real (la terminal tiene
+stdin, a diferencia de `jupyter nbconvert --execute`) — se decidió no
+ponerlo en el notebook por esa misma razón (ver ARCHITECTURE.md).
+
+Cada corrida real (con voz y render reales) queda registrada en
+`historial_corridas.jsonl` — una línea JSON por corrida con tokens, costo
+medido por el SDK y la ruta del video, para llevar cuenta de cuánto ha
+costado usar esto en el tiempo, no solo el costo de la corrida actual.
+
 ## Estructura del repo
 
 ```
@@ -107,9 +140,15 @@ agentes-reels/
   README.md
   ARCHITECTURE.md
   requirements.txt
+  producir_reel.py         ← CLI de uso real (rich: tablas, spinners, aprobacion)
+  historial.py             ← registro de costo por corrida (historial_corridas.jsonl)
   state.py                 ← memoria compartida (ReelState)
   prompts/                 ← perfil/rol de cada agente (texto plano)
-  tools/                   ← research/visual mockeados; voice_tools.py es REAL (OmniVoice)
+  tools/
+    research_tools.py      ← catalogo demo (mock, fuente_tipo="demo")
+    repo_tools.py           ← REAL: lee una carpeta local (fuente_tipo="repo")
+    voice_tools.py          ← REAL: invoca OmniVoice
+    visual_tools.py         ← mock (no genera TSX, AgenteReel ya es generica)
   agents/                  ← un módulo por agente + helpers del Agent SDK
     render_agent.py        ← código puro: arma props y corre `remotion render`
   notebooks/
@@ -134,7 +173,8 @@ Ver `ARCHITECTURE.md` para el detalle punto por punto. Resumen:
   el campo que su rol necesita, no todo el estado.
 - **Planificación**: el Orquestador decide el plan y, si falla el QA,
   decide una replanificación acotada (un solo reintento).
-- **Acción**: Investigación y Visual actúan con herramientas mockeadas del
-  Agent SDK; Voz actúa con una herramienta real (`generar_voz_real`) que
-  invoca OmniVoice de verdad; el Render final es código determinístico
-  (no una herramienta del LLM) que produce el MP4.
+- **Acción**: Investigación actúa con una herramienta real por cada tipo de
+  fuente (`leer_repo`, `WebSearch`/`WebFetch`, o el catálogo demo); Visual
+  sigue con una herramienta mockeada; Voz actúa con `generar_voz_real`
+  (OmniVoice de verdad); el Render final es código determinístico (no una
+  herramienta del LLM) que produce el MP4.

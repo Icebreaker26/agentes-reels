@@ -40,14 +40,20 @@ async def llamar_agente(
     user_prompt: str,
     model: str,
     tools: list[SdkMcpTool] | None = None,
+    tools_builtin: list[str] | None = None,
     allowed_tools: list[str] | None = None,
     max_turns: int = 6,
 ) -> LlamadaResultado:
     """Hace una llamada al Agent SDK y devuelve el texto final + el uso medido.
 
     Cada agente recibe solo las herramientas que su rol necesita (scoping
-    de actuators por agente, ver ARCHITECTURE.md). Sin `tools`, el agente
-    no tiene ninguna herramienta -- razona solo con lo que le pasa el prompt.
+    de actuators por agente, ver ARCHITECTURE.md). Sin `tools` ni
+    `tools_builtin`, el agente no tiene ninguna herramienta -- razona solo
+    con lo que le pasa el prompt.
+
+    `tools_builtin` habilita herramientas YA incluidas en el Agent SDK (ej.
+    `WebSearch`, `WebFetch`) en vez de una propia -- se usa para el agente
+    de Investigacion cuando la fuente es internet, no un repo o un catalogo.
     """
     mcp_servers: dict[str, McpServerConfig] = {}
     if tools:
@@ -59,8 +65,8 @@ async def llamar_agente(
         mcp_servers=mcp_servers,
         allowed_tools=allowed_tools or [],
         max_turns=max_turns,
-        tools=[],  # sin herramientas built-in (Bash, Read, ...): solo las propias del rol
-        permission_mode="bypassPermissions",  # corre sin humano para aprobar; las tools son mocks inocuos
+        tools=tools_builtin or [],  # sin herramientas built-in salvo que el rol las pida explicitamente
+        permission_mode="bypassPermissions",  # corre sin humano para aprobar; las tools propias son mocks inocuos
     )
 
     texto_final = ""

@@ -2,3 +2,4 @@ claude-agent-sdk>=0.2.180
 nbformat>=5.10
 nbclient>=0.10
 ipykernel>=6.29
+rich>=13.7

@@ -13,10 +13,13 @@
    ┌────────▼────────┐  ┌────────▼────────┐   ┌────────▼────────┐
    │   Orquestador    │  │  Investigacion   │   │     Guion       │
    │  (Haiku)         │  │  (Haiku)         │   │    (Sonnet)     │
-   │  planifica,      │  │  tool:           │   │  escribe la     │
-   │  replanifica     │  │  leer_fuente     │   │  tabla de       │
-   └────────┬─────────┘  └──────────────────┘   │  escenas        │
-            │                                    └────────┬────────┘
+   │  planifica,      │  │  tool REAL segun │   │  escribe la     │
+   │  replanifica     │  │  fuente_tipo:    │   │  tabla de       │
+   │                  │  │  leer_repo /     │   │  escenas        │
+   │                  │  │  WebSearch+Fetch │   │                 │
+   │                  │  │  / leer_fuente   │   │                 │
+   └────────┬─────────┘  └──────────────────┘   └────────┬────────┘
+            │                                               │
             │  si falla QA, decide correccion              │
             │                                               │
             │              ┌────────────────────────────────┘
@@ -104,12 +107,18 @@ en un número acotado y predecible de llamadas al modelo.
 ## Acción
 
 Los agentes de Investigación, Voz y Visual actúan llamando a herramientas
-reales del Agent SDK (`@tool`, `create_sdk_mcp_server`) — esto es
-tool-calling genuino, no un JSON simulado: el modelo decide cuándo y con
-qué argumentos llamar a la herramienta, y el SDK ejecuta la función Python
-correspondiente. Lo que está mockeado es **la implementación** de esas
-herramientas (no llaman de verdad a OmniVoice ni a Remotion), no el
-mecanismo de acción del agente.
+reales del Agent SDK (`@tool`, `create_sdk_mcp_server`, o herramientas ya
+incluidas en el SDK como `WebSearch`/`WebFetch`) — esto es tool-calling
+genuino, no un JSON simulado: el modelo decide cuándo y con qué argumentos
+llamar a la herramienta, y el SDK ejecuta la función correspondiente.
+
+Investigación es el caso más rico: la herramienta que recibe depende del
+`fuente_tipo` (ver `agents/research_agent.py` → `_CONFIG_POR_TIPO`) — un
+repo local (`leer_repo`, solo lectura, real), internet (`WebSearch` +
+`WebFetch`, reales) o el catálogo demo (`leer_fuente`, mock, solo para
+pruebas rápidas sin red). Voz también es real (`generar_voz_real`, invoca
+OmniVoice). Lo que sigue mockeado es Visual/3D — **la implementación** de
+`generar_visual_mock`, no el mecanismo de acción del agente.
 
 ## Por qué QA es código, no un agente LLM
 
