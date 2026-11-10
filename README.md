@@ -16,10 +16,9 @@ que todo cuadre antes de dar por terminado el reel.
 Este proyecto toma esas fases y las modela formalmente como **agentes
 especializados** que colaboran bajo un orquestador, en vez de un solo
 agente genérico que hace todo. El resultado de esta primera entrega es un
-notebook que corre ese sistema de punta a punta usando llamadas reales a
-un modelo de lenguaje (no simuladas), aunque las herramientas externas que
-en producción generarían audio y video real (OmniVoice, Remotion) están
-mockeadas a propósito — ver "Entregables" abajo.
+notebook que corre ese sistema de punta a punta con llamadas reales a un
+modelo de lenguaje y que **termina produciendo un video MP4 real, con voz
+real** generada por OmniVoice — no solo una especificación simulada.
 
 ## Objetivo general
 
@@ -35,8 +34,15 @@ en LLM (Wang et al., 2023).
 Lo que **sí** cubre este avance:
 - ✅ Seis agentes funcionando con llamadas reales al modelo (Agent SDK),
   coordinados por un `ReelState` compartido.
-- ✅ Tres de ellos usan herramientas reales (tool-calling) que **simulan**
-  (mockean) una llamada a un servicio externo (lectura de fuente, voz, 3D).
+- ✅ **Voz real**: el agente de Voz llama de verdad a OmniVoice (subproceso
+  al venv de OmniVoice) y obtiene la duración real de cada línea — no una
+  estimación.
+- ✅ **Video real**: un agente de Render (código puro, no un LLM) ensambla
+  el guion + las duraciones reales en una composición genérica de Remotion
+  (`AgenteReel`, en el repo público `3d-animations-showcase`) y produce un
+  MP4 real.
+- ✅ Investigación y Visual/3D usan herramientas reales (tool-calling) que
+  siguen **mockeadas** — ver justificación de Visual más abajo.
 - ✅ Un ciclo de replanificación: si el QA (determinístico, no un LLM)
   rechaza el resultado, el Orquestador decide una corrección y se repite
   una vez el ciclo Guion → Voz → QA.
@@ -45,18 +51,21 @@ Lo que **sí** cubre este avance:
   que refleja esa arquitectura.
 
 Lo que **no** cubre (fuera de alcance de este avance, trabajo futuro):
-- ❌ Generar audio o video real (eso vive en el proyecto de producción,
-  privado, con datos de clientes reales).
-- ❌ Integrar este sistema multiagente con el pipeline de producción real.
+- ❌ El Visual/3D sigue mockeado: decide kit/idea por escena, pero no
+  genera código TSX distinto por reel — la composición `AgenteReel` es
+  genérica y data-driven a propósito (ver ARCHITECTURE.md, "Por qué el
+  render es código, no un LLM").
+- ❌ Integrar este sistema multiagente con el pipeline de producción real
+  (reels de clientes, repo privado `3d-animations`) — este avance solo usa
+  el motor público (`3d-animations-showcase`).
 - ❌ Una interfaz de usuario — este es un notebook de demostración.
 
-Mockear la herramienta de voz no es solo para que la demo sea barata: el
-modelo real de voz (OmniVoice) es pesado y en esta máquina compite por
-memoria virtual con todo lo demás (ver `3d-animations/CLAUDE.md`, sección
-de problemas conocidos — a veces hay que cerrar WSL y Chrome solo para
-generar un audio). Que un notebook de clase dependa de esa carga sería
-frágil; la herramienta mock aisla por completo el diseño del agente de
-esa fragilidad de infraestructura.
+**Precondición operativa real, no cosmética:** OmniVoice es pesado y esta
+máquina tiene poca memoria virtual (ver `3d-animations/CLAUDE.md`, sección
+de problemas conocidos). Antes de correr la celda de voz del notebook hay
+que cerrar WSL y Chrome — si no, la generación puede fallar o colgarse. El
+notebook lo advierte en la celda correspondiente; no se automatiza porque
+cerrar WSL puede tumbar Docker/Postgres de otro trabajo del usuario.
 
 ## Autenticación: sin API key, con la suscripción de Claude
 
@@ -86,9 +95,10 @@ La elección de modelo por agente es deliberada, no uniforme:
 | Orquestador | Haiku | decisión acotada, formato fijo |
 | Investigación | Haiku | una llamada a herramienta, sin creatividad |
 | **Guion** | **Sonnet** | única fase creativa real: tono, ritmo, gancho |
-| Voz | Haiku | traduce guion a llamadas de herramienta |
-| Visual/3D | Haiku | idem |
+| Voz | Haiku | una sola llamada de lote a OmniVoice, sin creatividad |
+| Visual/3D | Haiku | decide kit/idea, no genera código |
 | QA | — (Python puro) | ver más abajo |
+| Render | — (Python puro) | ensamblar props + `remotion render`, ver más abajo |
 
 ## Estructura del repo
 
@@ -99,11 +109,17 @@ agentes-reels/
   requirements.txt
   state.py                 ← memoria compartida (ReelState)
   prompts/                 ← perfil/rol de cada agente (texto plano)
-  tools/                   ← herramientas mock (research/voice/visual)
+  tools/                   ← research/visual mockeados; voice_tools.py es REAL (OmniVoice)
   agents/                  ← un módulo por agente + helpers del Agent SDK
+    render_agent.py        ← código puro: arma props y corre `remotion render`
   notebooks/
     01_demo_multiagente.ipynb
 ```
+
+El video real se genera en un repo hermano público,
+`3d-animations-showcase` (`src/agente-reel/AgenteReel.tsx` +
+`src/Root.tsx`), no dentro de este repo — así el proyecto académico nunca
+necesita vendorizar el motor de reels completo.
 
 ## Fundamentación en teoría de agentes
 
@@ -118,6 +134,7 @@ Ver `ARCHITECTURE.md` para el detalle punto por punto. Resumen:
   el campo que su rol necesita, no todo el estado.
 - **Planificación**: el Orquestador decide el plan y, si falla el QA,
   decide una replanificación acotada (un solo reintento).
-- **Acción**: los agentes de Investigación, Voz y Visual actúan a través
-  de herramientas reales del Agent SDK (`@tool`), que en este avance están
-  mockeadas — simulan la llamada a OmniVoice/Remotion sin ejecutarla.
+- **Acción**: Investigación y Visual actúan con herramientas mockeadas del
+  Agent SDK; Voz actúa con una herramienta real (`generar_voz_real`) que
+  invoca OmniVoice de verdad; el Render final es código determinístico
+  (no una herramienta del LLM) que produce el MP4.

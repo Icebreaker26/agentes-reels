@@ -24,8 +24,10 @@
    ┌────────▼────────┐  ┌──▼──────────────┐
    │      Voz         │  │    Visual/3D     │
    │   (Haiku)         │  │   (Haiku)        │
-   │  tool:            │  │  tool:           │
-   │  generar_voz_mock │  │  generar_visual_mock │
+   │  tool REAL:       │  │  tool mock:      │
+   │  generar_voz_real │  │  generar_visual_mock │
+   │  (OmniVoice, 1    │  │  (decide kit/idea,   │
+   │  llamada por lote)│  │  no genera codigo)   │
    └────────┬──────────┘  └────────┬─────────┘
             │                      │
             └──────────┬───────────┘
@@ -37,6 +39,15 @@
                └────────┬──────────┘
                         │
               aprobado ─┴─ no aprobado → vuelve al Orquestador (1 reintento)
+                        │
+               ┌────────▼─────────┐
+               │     Render         │   determinístico, NO es un LLM
+               │  (Python puro)     │   arma props (guion + duracion real
+               │                    │   de voz) y corre `remotion render`
+               └────────┬───────────┘
+                        │
+                  MP4 real, con voz real
+                  (composicion AgenteReel en 3d-animations-showcase)
 ```
 
 Cada flecha hacia `ReelState` es una lectura (`resumen_json`, acotada a los
@@ -108,3 +119,20 @@ puede expresar como una comparación de números. El motor real de reels
 sigue el mismo principio: verifica con `tsc`, stills leídos como imagen,
 y métricas de audio (`audio_levels.mjs`) en vez de pedirle a un agente que
 diga "se ve bien". Aquí, `qa_agent.verificar` es Python puro.
+
+## Por qué el render es código, no un LLM
+
+Una vez el guion está aprobado y la voz es real, producir el video es una
+acción mecánica: tomar el texto y la duración real de cada escena y
+pasárselos a un renderer. Dejar que el LLM escriba TSX distinto cada vez
+sería frágil (el código podría no compilar, desalinear el tiempo de la
+voz, romper convenciones del motor) para una ganancia nula, porque no hay
+ninguna decisión creativa en ese paso.
+
+Por eso `agents/render_agent.py` no llama al modelo: arma un `props.json`
+con `{id, segundos (real), texto}` por escena y lo pasa a una composición
+Remotion ya escrita y genérica, `AgenteReel` (en el repo público
+`3d-animations-showcase`), que no sabe nada de este reel en particular —
+solo sabe renderizar "una lista de escenas con texto y audio". La única
+decisión que el agente Visual/3D sí toma (kit, idea visual por escena) es
+documental en este avance: no cambia qué composición se usa.
