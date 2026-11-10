@@ -27,7 +27,7 @@ Devuelve terminando con:
         model=MODEL,
         tools=[generar_voz_real],
         allowed_tools=["mcp__herramientas__generar_voz_real"],
-        max_turns=4,
+        max_turns=8,
     )
     datos = extraer_json(resultado.texto)
     state.voz = datos.get("resultados", [])

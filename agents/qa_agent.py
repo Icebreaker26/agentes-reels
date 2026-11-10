@@ -14,11 +14,18 @@ TOLERANCIA = 0.15  # +/- 15% de la duracion objetivo
 
 
 def verificar(state: ReelState, duracion_objetivo_s: int) -> dict:
-    duraciones = [e.get("duracion_estimada_s", 0) for e in state.voz]
+    problemas: list[str] = []
+    duraciones = []
+    for e in state.voz:
+        d = e.get("duracion_estimada_s")
+        if not isinstance(d, (int, float)):
+            problemas.append(f"La escena '{e.get('escena')}' no trajo una duracion real valida (vino {d!r}).")
+            d = 0
+        duraciones.append(d)
+
     total = round(sum(duraciones), 2)
     delta = (total - duracion_objetivo_s) / duracion_objetivo_s if duracion_objetivo_s else 0
 
-    problemas = []
     if abs(delta) > TOLERANCIA:
         problemas.append(
             f"Duracion total estimada ({total}s) se desvia {delta:+.0%} del objetivo "

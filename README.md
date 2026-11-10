@@ -133,6 +133,18 @@ Cada corrida real (con voz y render reales) queda registrada en
 medido por el SDK y la ruta del video, para llevar cuenta de cuánto ha
 costado usar esto en el tiempo, no solo el costo de la corrida actual.
 
+**Decisión de alcance:** el CLI produce un video de **demo**, no uno con
+la riqueza visual de un reel de producción escrito a mano. Se probó darle
+al agente Visual/3D herramientas reales de código (`Write`/`Edit`/`Read`/
+`Bash`) para que escribiera TSX bespoke por escena, como hace un agente de
+código real — pero la plataforma del Agent SDK rechaza explícitamente
+crear un subagente con esas herramientas sin supervisión humana en vivo
+("Create Unsafe Agents"). La vía confiable y sin supervisión es la
+composición genérica y data-driven (`AgenteReel`): ninguna sorpresa, pero
+tampoco la variedad visual del repo privado. Si se retoma, el camino es
+correrlo con un humano mirando cada paso (como una sesión normal de
+Claude Code), no como un script desatendido.
+
 ## Estructura del repo
 
 ```

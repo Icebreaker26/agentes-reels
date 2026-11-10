@@ -27,6 +27,12 @@ from claude_agent_sdk import (
 )
 
 
+class RespuestaVaciaError(RuntimeError):
+    """El modelo termino la llamada sin texto final -- usualmente por agotar
+    `max_turns` antes de redactar el bloque ```json que se le pidio, o por
+    un error que interrumpio la conversacion a medias."""
+
+
 @dataclass
 class LlamadaResultado:
     texto: str
@@ -43,6 +49,7 @@ async def llamar_agente(
     tools_builtin: list[str] | None = None,
     allowed_tools: list[str] | None = None,
     max_turns: int = 6,
+    cwd: str | None = None,
 ) -> LlamadaResultado:
     """Hace una llamada al Agent SDK y devuelve el texto final + el uso medido.
 
@@ -53,7 +60,13 @@ async def llamar_agente(
 
     `tools_builtin` habilita herramientas YA incluidas en el Agent SDK (ej.
     `WebSearch`, `WebFetch`) en vez de una propia -- se usa para el agente
-    de Investigacion cuando la fuente es internet, no un repo o un catalogo.
+    de Investigacion cuando la fuente es internet.
+
+    `cwd` fija el directorio de trabajo del subproceso. Ningun agente lo usa
+    hoy (se probo para un agente de codigo con Write/Edit/Bash, descartado:
+    la plataforma rechaza crear un subagente con esas herramientas sin
+    supervision humana -- "Create Unsafe Agents"). Se deja disponible por
+    si algun agente futuro necesita fijar un directorio de trabajo.
     """
     mcp_servers: dict[str, McpServerConfig] = {}
     if tools:
@@ -66,20 +79,37 @@ async def llamar_agente(
         allowed_tools=allowed_tools or [],
         max_turns=max_turns,
         tools=tools_builtin or [],  # sin herramientas built-in salvo que el rol las pida explicitamente
-        permission_mode="bypassPermissions",  # corre sin humano para aprobar; las tools propias son mocks inocuos
+        permission_mode="bypassPermissions",  # corre sin humano para aprobar
+        cwd=cwd,
     )
 
     texto_final = ""
     uso_total: dict = {}
     costo = 0.0
+    resultado_msg: ResultMessage | None = None
     async for message in query(prompt=user_prompt, options=options):
         if isinstance(message, AssistantMessage):
             for block in message.content:
                 if isinstance(block, TextBlock):
                     texto_final = block.text
         if isinstance(message, ResultMessage):
+            resultado_msg = message
             uso_total = message.usage or {}
             costo = message.total_cost_usd or 0.0
+
+    if not texto_final.strip():
+        detalle = ""
+        if resultado_msg is not None:
+            detalle = (
+                f" (stop_reason={resultado_msg.stop_reason!r}, "
+                f"terminal_reason={getattr(resultado_msg, 'terminal_reason', None)!r}, "
+                f"is_error={resultado_msg.is_error!r}, "
+                f"result={str(getattr(resultado_msg, 'result', ''))[:300]!r})"
+            )
+        raise RespuestaVaciaError(
+            f"El modelo no devolvio texto final tras {max_turns} max_turns.{detalle} "
+            "Prueba subiendo max_turns o revisa si una herramienta devolvio un error."
+        )
 
     return LlamadaResultado(texto=texto_final, uso=uso_total, costo_usd=costo)
 
@@ -88,7 +118,13 @@ def extraer_json(texto: str) -> dict:
     """Extrae el primer bloque ```json ... ``` de la respuesta del modelo."""
     m = re.search(r"```json\s*(.*?)\s*```", texto, re.DOTALL)
     bruto = m.group(1) if m else texto
-    return json.loads(bruto)
+    try:
+        return json.loads(bruto)
+    except json.JSONDecodeError as e:
+        raise ValueError(
+            f"No se pudo parsear JSON de la respuesta del modelo: {e}\n"
+            f"Texto recibido (primeros 1000 caracteres):\n{texto[:1000]!r}"
+        ) from e
 
 
 T = TypeVar("T")
