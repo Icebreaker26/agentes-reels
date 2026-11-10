@@ -20,6 +20,23 @@ notebook que corre ese sistema de punta a punta con llamadas reales a un
 modelo de lenguaje y que **termina produciendo un video MP4 real, con voz
 real** generada por OmniVoice — no solo una especificación simulada.
 
+## Qué camino usar según lo que necesites
+
+| Si quieres... | Usa | Calidad del resultado |
+|---|---|---|
+| Ver el diseño del sistema multiagente, paso a paso | el **notebook** (`notebooks/01_demo_multiagente.ipynb`) | demo, sin supervisión |
+| Generar un reel real sin abrir nada más que una terminal | el **CLI** (`producir_reel.py`) | demo — visual genérico y data-driven, confiable pero simple (ver "Decisión de alcance" abajo) |
+| Un reel con la riqueza visual del motor privado (animaciones propias por escena, como los reels reales) | **Claude Code en vivo**, con un humano mirando cada paso | producción — lo mismo que se usa hoy para los reels reales |
+
+La razón no es que el CLI esté a medio terminar: es estructural. El CLI
+automatiza sin supervisión, así que cada agente debe funcionar dentro de
+límites estrictos (turnos acotados, un contrato de JSON fijo, sin acceso
+a herramientas de código real — ver más abajo). Claude Code en una sesión
+normal no tiene esos límites: puede iterar sin tope, ver sus propios
+stills y corregirse, y tiene a alguien al lado para avisarle si algo sale
+mal. Esa diferencia es la que hace que los reels reales salgan tan
+completos y el CLI, deliberadamente, no.
+
 ## Objetivo general
 
 Diseñar y demostrar un sistema multiagente donde roles especializados
